@@ -1,0 +1,7 @@
+version: 2.1
+
+description: >
+  Deploy to AWS ElasticBeanstalk.
+
+orbs:
+  aws-cli: circleci/aws-cli@0.1.13
