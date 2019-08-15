@@ -4,11 +4,12 @@ orbs:
   orb-tools: circleci/orb-tools@8.27.4
 
 workflows:
+  version: 2
 
-  - orb-tools/lint
+  lint_pack-validate_publish-dev:
+    jobs:
+      - orb-tools/lint
 
-  - orb-tools/pack:
-      requires:
-        - orb-tools/lint
-
-
+      - orb-tools/pack:
+          requires:
+            - orb-tools/lint
