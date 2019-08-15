@@ -13,3 +13,8 @@ workflows:
       - orb-tools/pack:
           requires:
             - orb-tools/lint
+
+      - orb-tools/publish-dev:
+          orb-name: laterpay/aws-eb
+          requires:
+            - orb-tools/pack
