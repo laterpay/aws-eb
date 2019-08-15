@@ -1,0 +1,31 @@
+description: >-
+  Prune old EB versions
+
+parameters:
+  region:
+    type: string
+    description: The AWS_REGION for app deployment
+  application-name:
+    type: string
+    description: An EB application name, e.g. 'connector-lpeu-prod'
+  keep:
+    type: integer
+    description: Number of most recent versions to keep
+    default: 100
+
+steps:
+  - deploy:
+      name: Pruning EB versions (keeping << parameters.keep >>)
+      command: |
+        set -x
+        aws --region << parameters.region >> elasticbeanstalk \
+            describe-application-versions \
+            --application-name << parameters.application-name >> \
+            --query 'ApplicationVersions[].VersionLabel' \
+            --output text \
+            | xargs -n1 | sort -r | sed 1,<< parameters.keep >>D \
+            | xargs -n1 -I% \
+                aws --region << parameters.region >> \
+                    elasticbeanstalk delete-application-version \
+                    --application-name << parameters.application-name >> \
+                    --version-label %
