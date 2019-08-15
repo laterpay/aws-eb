@@ -1,0 +1,39 @@
+description: >-
+  Wait for the EB environment to report deployment of new version.
+
+parameters:
+  region:
+    type: string
+    description: The AWS_REGION for app deployment
+  environment-name:
+    type: string
+    description: An environment name, e.g. 'connector-lpeu-prod-http-green'
+  version-label:
+    type: string
+    description: The version to wait for deployment of
+  timeout:
+    type: integer
+    description: Timeout in seconds
+    default: 900
+
+steps:
+  - run:
+      name: Wait for EB to confirm new version
+      command: |
+        # $SECONDS is a bash built-in containing script execution time
+        while (( $SECONDS < << parameters.timeout >> )) ; do
+          ENV_VERSION=$( aws --region << parameters.region >> \
+            elasticbeanstalk describe-environments \
+            --environment-names << parameters.environment-name >> \
+            --query "Environments[].VersionLabel" \
+            --output text)
+
+          # If our version is what we expect, we're done
+          [ x$ENV_VERSION == x<< parameters.version-label >> ] && exit 0
+
+          echo -n .
+          sleep 10
+        done
+
+        echo "Deployment of << parameters.version-label >> could not be confirmed"
+        exit 1
