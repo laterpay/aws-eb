@@ -1,0 +1,27 @@
+description: >-
+  Extract PREV_COMMIT from the version-label of the running EB version.
+
+parameters:
+  region:
+    type: string
+    description: The AWS_REGION for app deployment
+  environment-name:
+    type: string
+    description: An EB environment name, e.g. 'connector-lpeu-prod-http'
+
+steps:
+  - run:
+      name: >-
+        Extract PREV_COMMIT from EB environment's running version
+      command: >-
+        echo export PREV_COMMIT=$(aws --region << parameters.region >> \
+          elasticbeanstalk describe-environments \
+          --environment-names << parameters.environment-name >> \
+          --query 'Environments[0].VersionLabel' \
+          --output text \
+          | awk -F- '{print $NF}'
+        ) >> $BASH_ENV
+
+  - run:
+      name: Calculate COMMIT_RANGE
+      command: echo "export COMMIT_RANGE=${PREV_COMMIT:0:9}...${CIRCLE_SHA1:0:9}" >> $BASH_ENV
