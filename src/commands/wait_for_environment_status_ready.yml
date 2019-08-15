@@ -1,0 +1,35 @@
+description: >-
+  Wait for the EB environment to be in READY state.
+
+  This action requires enhanced health monitoring permissions.
+
+parameters:
+  region:
+    type: string
+    description: The AWS_REGION for app deployment
+  environment-name:
+    type: string
+    description: An environment name, e.g. 'connector-lpeu-prod-http-green'
+  timeout:
+    type: integer
+    description: Timeout in seconds
+    default: 900
+
+steps:
+  - run:
+      name: Wait until environment status is READY
+      command: |
+        # $SECONDS is a bash built-in containing script execution time
+        while (( $SECONDS < << parameters.timeout >> )) ; do
+          STATUS=$(aws --region << parameters.region >> \
+            elasticbeanstalk describe-environment-health \
+            --environment-name << parameters.environment-name >> \
+            --attribute-names Status \
+            --query Status \
+            --output text)
+
+          [ x$STATUS == xReady ] && break
+
+          echo -n .
+          sleep 10
+        done
