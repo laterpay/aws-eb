@@ -1,0 +1,21 @@
+description: >-
+  Deploy a new (previously created) version to an EB environment.
+
+parameters:
+  region:
+    type: string
+    description: The AWS_REGION for app deployment
+  environment-name:
+    type: string
+    description: An EB environment name, e.g. 'connector-lpeu-prod-http'
+  version-label:
+    type: string
+    description: The version to deploy
+
+steps:
+  - deploy:
+      name: Deploy EB application
+      command: |
+        aws --region << parameters.region >> elasticbeanstalk update-environment \
+            --environment-name << parameters.environment-name >> \
+            --version-label << parameters.version-label >>
