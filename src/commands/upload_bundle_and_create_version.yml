@@ -1,0 +1,39 @@
+description: >-
+  Upload an EB Version bundle and create a new EB version.
+
+parameters:
+  region:
+    type: string
+    description: The AWS_REGION for app deployment
+  application-name:
+    type: string
+    description: An EB application name, e.g. 'connector-lpeu-prod'
+  bundle:
+    type: string
+    description: Path to EB Version Bundle to upload
+  version-label:
+    type: string
+    description: A version specifier (e.g. $YYYYMMDD-$CIRCLE_SHA1)
+  description:
+    type: string
+    description: A short description for this version
+  version-bucket:
+    type: string
+    description: An S3 bucket to upload EB versions to
+
+steps:
+  - deploy:
+      name: Upload Version Bundle
+      command: |
+        aws --region << parameters.region >> \
+          s3 cp << parameters.bundle >> \
+          "s3://<< parameters.version-bucket >>/<< parameters.version-label >>.zip"
+
+  - deploy:
+      name: Create Application Version
+      command: |
+        aws --region << parameters.region >> elasticbeanstalk create-application-version \
+            --application-name << parameters.application-name >> \
+            --version-label << parameters.version-label >> \
+            --description "<< parameters.description >>" \
+            --source-bundle "S3Bucket=<< parameters.version-bucket >>,S3Key=<< parameters.version-label >>.zip"
