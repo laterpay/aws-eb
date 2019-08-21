@@ -1,0 +1,102 @@
+description: >-
+  Deploy to EB. This is *woefully* underdocumented. Mea Culpa.
+
+parameters:
+  account-url:
+    default: AWS_ECR_ACCOUNT_URL
+    description: >
+      Env var storing Amazon ECR account URL that maps to an AWS account, e.g.
+      {awsAccountNum}.dkr-ecr.us-west-2.amazonaws.com defaults to
+      AWS_ECR_ACCOUNT_URL
+    type: env_var_name
+  region:
+    type: string
+    description: The AWS_REGION for app deployment
+  application-name:
+    type: string
+    description: An application name, e.g. 'connector-lpeu-prod'
+  env-suffix:
+    type: string
+    description: >
+      An environment suffix, e.g. '-http'. We create the full EB
+      environment name by appending this to the 'application-name'
+      parameter.
+  version-bucket:
+    type: string
+    description: A bucket to upload EB versions to
+  slack_emojis:
+    type: string
+    default: ""
+    description: Emojis to add to Slack messaging for this environment
+  create-version-bundle:
+    type: steps
+    default: []
+    description: >-
+      Steps to create a ~/$VERSION_LABEL.zip file containing a
+      Dockerrun.json file, and potentially an .ebextensions folder.
+
+steps:
+  - checkout
+
+  - aws-cli/install
+
+  - extract_prev_commit:
+      region: << parameters.region >>
+      environment-name: << parameters.application-name >><< parameters.env-suffix >>
+
+  - abort_if_rollback
+
+  - slack/notify:
+      include_job_number_field: false
+      include_project_field: false
+      include_visit_job_action: false
+      message: >
+        Starting $CIRCLE_PROJECT_REPONAME
+        <$CIRCLE_BUILD_URL|$CIRCLE_JOB><< parameters.slack_emojis >>
+        containing <https://github.com/laterpay/$CIRCLE_PROJECT_REPONAME/compare/$COMMIT_RANGE|$COMMIT_RANGE>. <@$CIRCLE_USERNAME>
+
+  - prune_old_versions:
+      region: << parameters.region >>
+      application-name: << parameters.application-name >>
+
+  - run:
+      name: Create Version Label
+      command: |
+        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+        echo "export VERSION_LABEL=$TIMESTAMP-$CIRCLE_SHA1" >> $BASH_ENV
+
+  - steps: << parameters.create-version-bundle >>
+
+  - upload_bundle_and_create_version:
+      region: << parameters.region >>
+      application-name: << parameters.application-name >>
+      bundle: ~/$VERSION_LABEL.zip
+      version-bucket: << parameters.version-bucket >>
+      version-label: $VERSION_LABEL
+      description: "Changes: https://github.com/laterpay/$CIRCLE_PROJECT_REPONAME/compare/$COMMIT_RANGE"
+
+  - wait_for_environment_status_ready:
+      region: << parameters.region >>
+      environment-name: << parameters.application-name >><< parameters.env-suffix >>
+
+  - deploy_version:
+      region: << parameters.region >>
+      environment-name: << parameters.application-name >><< parameters.env-suffix >>
+      version-label: $VERSION_LABEL
+
+  - wait_to_confirm_environment_version:
+      region: << parameters.region >>
+      environment-name: << parameters.application-name >><< parameters.env-suffix >>
+      version-label: $VERSION_LABEL
+
+  - slack/status:
+      success_message: >
+        :tada: $CIRCLE_PROJECT_REPONAME <$CIRCLE_BUILD_URL|$CIRCLE_JOB><< parameters.slack_emojis >>
+        succeeded! $SLACK_MENTIONS
+      failure_message: >
+        :warning: $CIRCLE_PROJECT_REPONAME <$CIRCLE_BUILD_URL|$CIRCLE_JOB><< parameters.slack_emojis >>
+        failed! $SLACK_MENTIONS
+      mentions: $CIRCLE_USERNAME
+      include_job_number_field: false
+      include_project_field: false
+      include_visit_job_action: false
