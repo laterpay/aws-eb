@@ -1,0 +1,21 @@
+description: >-
+  Fail deployment if the current commit is an ancestor to
+  $PREV_COMMIT. Set by `extract_prev_commit`, or other means.
+
+steps:
+  - deploy:
+      name: Abort deployment if the deploy would roll back other changes
+      command: |
+        git merge-base --is-ancestor $PREV_COMMIT $CIRCLE_SHA1 && exit 0
+
+        # Allow rolling back from poc branches
+        [[ "$CIRCLE_BRANCH" == poc* ]] && exit 0
+
+        # We are on main branch,
+        # which trumps all POC branches.
+        # If $PREV_COMMIT is not in current branch,
+        # we should allow the deploy to go ahead.
+        [[ "$(git branch --contains $PREV_COMMIT $CIRCLE_BRANCH)" == "" ]] && exit 0
+
+        echo "Aborting. $CIRCLE_SHA1 is already deployed as part of $PREV_COMMIT: refusing to roll back."
+        exit 1
